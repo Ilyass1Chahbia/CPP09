@@ -6,7 +6,7 @@ BitcoinExchange::BitcoinExchange()
 BitcoinExchange& BitcoinExchange::operator=(const BitcoinExchange& other)
 {
     if (this != &other)
-    this->_db = other._db;
+    this->data = other.data;
     return *this;
 }
 
@@ -24,17 +24,44 @@ void BitcoinExchange::loadDatabase(const std::string& filename)
     if (!file.is_open())
         throw std::runtime_error("could not open file.");
 
+    file.seekg(0, std::ios::end); // set cursor position !!!
+    if (file.tellg() == 0) // get cusor postion !!!
+        throw std::runtime_error("file is empty.");
+    file.seekg(0, std::ios::beg);
     std::string line;
     std::getline(file, line);
     while (std::getline(file, line))
     {
         std::istringstream ss(line);
-        std::string date, rateStr;
-        if (!std::getline(ss, date, ',') || !std::getline(ss, rateStr))
+        std::string date, rest;
+        if (!std::getline(ss, date, ',') || !std::getline(ss, rest))
             continue;
-        double rate = std::strtod(rateStr.c_str(), NULL);
-        _db[date] = rate;
+        double rate = std::strtod(rest.c_str(), NULL);
+        data[date] = rate;
     }
+}
+
+bool isValidNumber(const std::string& str)
+{
+    bool pt = false;
+
+    if (str.empty())
+        return false;
+
+    for (size_t i = 0; i < str.size(); i++)
+    {
+        if (str[i] == '.')
+        {
+            if (pt)
+                return false;
+            pt = true;
+        }
+        else if (!std::isdigit(str[i]))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void BitcoinExchange::processInput(const std::string& filename)
@@ -48,6 +75,10 @@ void BitcoinExchange::processInput(const std::string& filename)
 
     std::string line;
     std::getline(file, line);
+    if (line != "date | value")
+    {
+        throw std::runtime_error("Error: bad header, expected \"date | value\"");
+    }
     while (std::getline(file, line))
     {
         if (line.empty())
@@ -68,6 +99,11 @@ void BitcoinExchange::processInput(const std::string& filename)
             continue;
         }
 
+        if (line[11] != '|' || line[12] != ' ' || !std::isdigit(line[13]))
+        {
+            std::cerr << "Error: bad input => " << line << std::endl;
+            continue;            
+        }
         while (!date.empty() && std::isspace(date[date.size() - 1]))
             date.erase(date.size() - 1);
         while (!valueStr.empty() && std::isspace(valueStr[0]))
@@ -76,6 +112,12 @@ void BitcoinExchange::processInput(const std::string& filename)
         if (!isValidDate(date))
         {
             std::cerr << "Error: bad input => " << date << std::endl;
+            continue;
+        }
+
+        if (!isValidNumber(valueStr))
+        {
+            std::cerr << "Error: bad input => " << line << std::endl;
             continue;
         }
 
@@ -90,15 +132,29 @@ void BitcoinExchange::processInput(const std::string& filename)
             continue;
         }
 
-        double result = value * _db[dbDate];
+        double result = value * data[dbDate];
         std::cout << date << " => " << value << " = " << result << std::endl;
     }
 }
 
 bool BitcoinExchange::isValidDate(const std::string& date) const
 {
-    if (date.size() != 10 || date[4] != '-' || date[7] != '-')
+    if (date.size() != 10)
         return false;
+
+    for (int i = 0; i < 10; ++i)
+    {
+        if (i == 4 || i == 7)
+        {
+            if (date[i] != '-')
+                return std::cout << "hnaa" << std::endl,false;
+        }
+        else
+        {
+            if (!std::isdigit(date[i]))
+                return std::cout << "hnaa" << std::endl ,false;
+        }
+    }
 
     int year = std::atoi(date.substr(0, 4).c_str());
     int month = std::atoi(date.substr(5, 2).c_str());
@@ -140,14 +196,14 @@ bool BitcoinExchange::isValidValue(const std::string& valueStr, double& value) c
 
 std::string BitcoinExchange::findClosestDate(const std::string& date) const
 {
-    std::map<std::string, double>::const_iterator it = _db.lower_bound(date);
-    if (it == _db.end())
+    std::map<std::string, double>::const_iterator it = data.lower_bound(date);
+    if (it == data.end())
     {
         --it;
     }
     else if (it->first != date)
     {
-        if (it == _db.begin())
+        if (it == data.begin())
             return "";
         --it;
     }
