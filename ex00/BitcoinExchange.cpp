@@ -52,6 +52,8 @@ bool isValidNumber(const std::string& str)
     {
         if (str[i] == '.')
         {
+            if (!std::isdigit(str[i + 1]) )
+                return false;
             if (pt)
                 return false;
             pt = true;
@@ -147,12 +149,12 @@ bool BitcoinExchange::isValidDate(const std::string& date) const
         if (i == 4 || i == 7)
         {
             if (date[i] != '-')
-                return std::cout << "hnaa" << std::endl,false;
+                return false;
         }
         else
         {
             if (!std::isdigit(date[i]))
-                return std::cout << "hnaa" << std::endl ,false;
+                return false;
         }
     }
 
@@ -175,7 +177,6 @@ bool BitcoinExchange::isValidValue(const std::string& valueStr, double& value) c
 {
     char* end;
     value = std::strtod(valueStr.c_str(), &end);
-
     if (*end != '\0')
     {
         std::cerr << "Error: bad input => " << valueStr << std::endl;
